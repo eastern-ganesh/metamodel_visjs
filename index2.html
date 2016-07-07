@@ -1,0 +1,302 @@
+<html>
+<head>
+    <script type="text/javascript" src="./node_modules/vis/dist/vis.js"></script>
+    <link href="./node_modules/vis/dist/vis.css" rel="stylesheet" type="text/css" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+
+    <style>
+        body {
+            color: #d3d3d3;
+            font: 12pt arial;
+            background-color: #222222;
+        }
+
+        #mynetwork {
+            width: 800px;
+            height: 800px;
+            border: 1px solid #444444;
+            background-color: #222222;
+        }
+
+       	.popup {
+       		display: none;
+    position: absolute;
+    top: 350px;
+    left: 170px;
+    z-index: 299;
+    width: 250px;
+    height: 120px;
+    background-color: #f9f9f9;
+    border-style: solid;
+    border-width: 3px;
+    border-color: #5394ed;
+    padding: 10px;
+    text-align: center;
+		}
+    </style>
+</head>
+<body>
+
+<div id="mynetwork"></div>
+<script type="text/javascript">
+    var color = 'gray';
+    var len = undefined;
+
+    var selectedNodeColor = "#ff661a";
+    var topNodeColor = "#80b3ff";
+    var bottomNodeColor = "#4dff4d";
+
+    var nodesArray = [
+        {id: 0, label: "Enkelvoeudige" , color: {background:selectedNodeColor}},
+        {id: 1, label: "Depot1" , title : "<b>Test</b>"},
+        {id: 2, label: "krante2"},
+        {id: 3, label: "Bejoekers3"},
+
+        {id: 4, label: "Aute4"},
+        {id: 5, label: "boeken5"},
+        {id: 6, label: "Erfoged6"}
+    ];
+    nodes = new vis.DataSet(nodesArray);
+    var edgesArray = [
+        {id : "1" ,from: 1, to: 0 , place : "top", color:{ color:topNodeColor}},
+        {id : "2" ,from: 2, to: 0 , place : "top", color:{ color:topNodeColor}},
+        {id : "3" ,from: 3, to: 0,  place : "top", color:{ color:topNodeColor}},
+        {id : "4" ,from: 4, to: 0 , place : "bottom", color:{ color:bottomNodeColor}},
+        {id : "5" ,from: 5, to: 0, place : "bottom",color:{ color:bottomNodeColor}},
+        {id : "6" ,from: 6, to: 0, place : "bottom",color:{ color:bottomNodeColor}}
+	]
+
+    edges = new vis.DataSet(edgesArray);
+
+    var container = document.getElementById('mynetwork');
+    var data = {
+        nodes: nodes,
+        edges: edges
+    };
+    
+
+    var options = {
+    	interaction:{
+    	 	dragNodes:false,
+    	 	dragView: true,
+    	 	zoomView: true,
+    	 	hover : true
+  		},
+  		physics: {
+    		forceAtlas2Based: {
+      			springLength: 70
+      		},
+      		minVelocity: 0.80,
+    		solver: "forceAtlas2Based"
+  		},
+    	nodes: {
+    		shape: 'circle',
+    		color : '#e0e0d1',
+    		size: 32,
+    		font: {
+                size: 10,
+                color: '#000000'
+            },
+	        borderWidth: 2
+	    },
+        edges: {
+        	width: 2,
+        }
+	};
+
+   	var network = new vis.Network(container, data, options);
+    
+
+
+
+    network.on("click", function (params) {
+    	
+    	params.event = "[original event]";
+        if(typeof params.nodes[0] !== 'undefined') {
+        	resetNetworkColor();
+            expandNetwork(params.nodes[0], params.pointer.DOM);
+            changeNodeColorById(params.nodes[0]);
+            changeColorRelation(params.nodes[0]);
+        }
+	});
+
+
+    
+
+    
+
+
+    function resetNetworkColor()
+    {
+    	nodes.get({ 
+    		filter: function (item) { 
+    			nodes.update([{id:item.id, color:{background:'#e0e0d1'}}]);
+    		}
+    	});
+
+    	edges.get({ 
+    		filter: function (item) { 
+    			edges.update([{id:item.id, color:{color:'#e0e0d1'}}]);
+    		}
+    	});
+    }
+    /**
+     * Change node color by id
+     *
+     * @param int nodeId
+     * @return void
+     */
+    function changeNodeColorById(nodeId) 
+    {
+    	nodes.update([{id:nodeId, color:{background:selectedNodeColor, highlight : selectedNodeColor}}]);
+    }
+
+    /**
+     * change relation color
+     *
+     * @param int nodeId
+     * @return void
+     */
+    function changeColorRelation(nodeId)
+    {
+    	edges.get({ filter: function (item) {
+    			if(typeof item.to !== 'undefined' && typeof item.from !== 'undefined' && item.to == nodeId) {
+    				if(item.place == "bottom") {
+                        edges.update([{id:item.id, color:{highlight:bottomNodeColor}}]);
+                        edges.update([{id:item.id, color:{color:bottomNodeColor}}]);
+                	} else if(item.place == "top") {
+                    	edges.update([{id:item.id, color:{highlight:topNodeColor}}]);
+                    	edges.update([{id:item.id, color:{color:topNodeColor}}]);
+                    }
+    			}
+			}
+        });
+	}
+
+    /**
+     * Expand network by node
+     *
+     * @param int nodeId
+     * @return void
+    */
+    function expandNetwork(nodeId, dom) 
+    {
+    	var isExist = checkNodeExistInNetwork(nodeId);
+    	if(!isExist) {
+    		var network = getNodeNetwork(nodeId);
+    		addTopNetwork(network['top'], nodeId);
+    		addbottomNetWork(network['bottom'], nodeId);
+    	} else {
+    			$("#showpopup").css("left",dom.x);
+    			$("#showpopup").css("top",dom.y);
+    			$("#showpopup").show();
+    	}
+    }
+
+    function checkNodeExistInNetwork(nodeId) 
+    {
+    	var result = false;
+    	edges.get({ filter: function (item) {
+                if(item.to == nodeId) {
+                	result = true;
+                }
+			}
+        });
+
+        return result;
+    }
+
+    function addTopNetwork(networkArray, nodeId)
+    {
+    	for (i = 0; i < networkArray.length; i++) { 
+    		var isDuplicate = checkDuplicateNode(networkArray[i]);
+    		var lastNode = parseInt(nodes.max('id').id) + 1;
+    		var lastEdge = parseInt(edges.max('id').id) + 1;
+    		if(!isDuplicate) {
+    			nodes.add([{id : lastNode+1 ,label: networkArray[i].label}]);
+				edges.add([{id : lastEdge+1 ,place : "top",from: lastNode+1, to: nodeId}]);
+    		} else {
+    			var node = getNodeByLabel(networkArray[i].label);
+    			if(node != null) {
+    				edges.add([{id : lastEdge+1 ,place : "top",from: node.id, to: nodeId}]);	
+    			}
+    		}
+		}
+	}
+
+	function addbottomNetWork(networkArray, nodeId)
+    {
+    	for (i = 0; i < networkArray.length; i++) { 
+    		var isDuplicate = checkDuplicateNode(networkArray[i]);
+    		var lastNode = parseInt(nodes.max('id').id) + 1;
+    		var lastEdge = parseInt(edges.max('id').id) + 1;
+    		if(!isDuplicate) {
+    			nodes.add([{id : lastNode+1 ,label: networkArray[i].label}]);
+				edges.add([{id : lastEdge+1 ,place : "bottom",from: lastNode+1, to: nodeId}]);
+    		} else {
+    			var node = getNodeByLabel(networkArray[i].label);
+    			if(node != null) {
+    				edges.add([{id : lastEdge+1 ,place : "bottom",from: node.id, to: nodeId}]);	
+    			}
+    		}
+		}
+	}
+
+    function getNodeByLabel(label) {
+    	var node = null;
+    	nodes.get({ filter: function (item) {
+    			if(item.label == label) {
+    				node = item;
+                }
+			}
+        });
+
+        return node;
+    }
+
+    function checkDuplicateNode(rawNode) {
+    	var result = false;
+    	nodes.get({ filter: function (item) {
+    			if(item.label == rawNode.label) {
+    				result = true;
+                }
+			}
+        });
+
+        return result;
+    }
+
+    function getNodeNetwork(nodeId)
+    {
+
+    	var nodeNetwork = {
+    		"top": [{"label": makeNetwork()}, {"label": makeNetwork()}, {"label": makeNetwork()}],
+    		"bottom": [{"label": makeNetwork()}, {"label": makeNetwork()}, {"label": makeNetwork()}]
+    	}
+
+    	return nodeNetwork;
+    }
+
+    function makeNetwork()
+    {
+    	var text = "";
+    	var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    	for( var i=0; i < 5; i++ )
+        	text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+    	return text;
+	}
+
+	function hidePopup() {
+		$("#showpopup").hide();
+	}
+</script>
+<div id="showpopup" class="popup" style="display:none;">
+    <div id="network-popUp" style="display: block;">
+  		<span id="operation">Add Node</span> <br>
+  		<input type="button" value="cancel" id="cancelButton" onclick="hidePopup()">
+</div>
+</div>
+</body>
+</html>
